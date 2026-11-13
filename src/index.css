@@ -1,0 +1,90 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --ct-canvas: #0b0f17;
+    --ct-surface: #0f131c;
+    --ct-card: #141a24;
+    --ct-card-bar: #101622;
+    --ct-surface-hover: #1c2433;
+    --ct-input: #0e141f;
+    --ct-border: #232d3f;
+    --ct-border-hover: #334155;
+    --ct-cyan: #00f2fe;
+    --ct-cyan-focus: #38bdf8;
+    --ct-violet: #8b5cf6;
+    --ct-emerald: #10b981;
+    --ct-amber: #f59e0b;
+    --ct-rose: #f43f5e;
+    --ct-text: #dfe2ee;
+    --ct-text-muted: #94a3b8;
+  }
+
+  html {
+    font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+    background-color: var(--ct-canvas);
+    color: var(--ct-text);
+    color-scheme: dark;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: 'Plus Jakarta Sans', system-ui, sans-serif;
+  }
+
+  code, pre, kbd, samp, .font-mono {
+    font-family: 'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+.ct-card-shadow {
+  box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.65);
+}
+
+.ct-cyan-glow {
+  box-shadow: 0 0 16px -2px rgba(0, 242, 254, 0.25);
+}
+
+.ct-btn-cyan-hover:hover {
+  box-shadow: 0 0 18px rgba(0, 242, 254, 0.45);
+}
+
+.ct-pass-glow {
+  box-shadow: 0 0 12px -2px rgba(16, 185, 129, 0.3);
+}
+
+.ct-triage-glow {
+  box-shadow: 0 0 12px -2px rgba(245, 158, 11, 0.25);
+}
+
+/* Custom precision scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0b0f17;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #232d3f;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

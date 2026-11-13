@@ -1,0 +1,6 @@
+{
+  "name": "CoreTech Zero-to-One",
+  "description": "An interactive systems engineering workbench and deep-engineering learning environment for transitioning from syntax memorization to rigorous computational thinking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
