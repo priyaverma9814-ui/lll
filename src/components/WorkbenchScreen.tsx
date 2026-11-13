@@ -1,5 +1,5 @@
 import React from 'react';
-import { Terminal, BookOpen, Sliders, Activity, CheckCircle2, ListOrdered } from 'lucide-react';
+import { Terminal, BookOpen, Sliders, Activity, CheckCircle2 } from 'lucide-react';
 import {
   EngineeringModule,
   ModuleId,
@@ -13,6 +13,7 @@ import {
 } from './TelemetryPrimitives';
 import { TimeTravelScrubber } from './TimeTravelScrubber';
 import { ModuleVisualizer } from './ModuleVisualizer';
+import { PerformanceTelemetryChart } from './PerformanceTelemetryChart';
 
 interface WorkbenchScreenProps {
   modules: EngineeringModule[];
@@ -48,6 +49,11 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
   const [centerTab, setCenterTab] = React.useState<'visual' | 'source'>('visual');
   const [terminalInput, setTerminalInput] = React.useState('');
   const [commandHistory, setCommandHistory] = React.useState<string[]>([]);
+  const [topicImgFailed, setTopicImgFailed] = React.useState(false);
+
+  React.useEffect(() => {
+    setTopicImgFailed(false);
+  }, [activeModule.id]);
 
   const frame = frames[Math.min(currentStep, frames.length - 1)] ?? frames[0];
   const hasFault = frame.assertions.some((a) => a.severity === 'fault');
@@ -55,6 +61,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
   const overallSeverity = hasFault ? 'fault' : hasTriage ? 'triage' : 'pass';
   const isCompleted = completedModules.includes(activeModule.id);
 
+  // Build visible console log up to current step + user commands
   const traceLines = frames.slice(0, currentStep + 1).map((f) => f.consoleLine);
 
   const handleTerminalSubmit = (e: React.FormEvent) => {
@@ -66,23 +73,23 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
     if (cmd === 'step' || cmd === 'next') {
       const next = Math.min(frames.length - 1, currentStep + 1);
       onStepChange(next);
-      response = `> Moved to Step ${next + 1} of ${frames.length}`;
+      response = `> step -> Frame ${next + 1}/${frames.length}`;
     } else if (cmd === 'back' || cmd === 'prev') {
       const prev = Math.max(0, currentStep - 1);
       onStepChange(prev);
-      response = `> Moved back to Step ${prev + 1} of ${frames.length}`;
+      response = `> back -> Frame ${prev + 1}/${frames.length}`;
     } else if (cmd === 'run' || cmd === 'play') {
       onTogglePlay();
-      response = `> ${isPlaying ? 'Paused' : 'Playing'} step-by-step playback`;
+      response = `> ${isPlaying ? 'paused' : 'running'} simulation`;
     } else if (cmd === 'reset') {
       onReset();
-      response = '> Reset back to Step 1';
+      response = '> reset -> Frame 1';
     } else if (cmd === 'help') {
-      response = '> Commands: step, back, run, reset, inspect';
+      response = '> commands: step, back, run, reset, inspect';
     } else if (cmd === 'inspect') {
       response = `> ${frame.registers.map((r) => `${r.name}=${r.value}`).join(' ')}`;
     } else {
-      response = `> Unknown command '${cmd}' (try: help, step, back, run, reset, inspect)`;
+      response = `> unknown command '${cmd}' (try: help, step, back, run, reset, inspect)`;
     }
 
     setCommandHistory((prev) => [...prev.slice(-4), `$ ${cmd}`, response]);
@@ -91,20 +98,21 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
 
   return (
     <div className="mx-auto max-w-[1440px] px-4 py-6 sm:px-6 lg:px-10">
+      {/* 12-column Modular Engineering Grid */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-12 items-start">
-        {/* LEFT PANE (3 cols): Step-by-Step Topics & Controls */}
+        {/* LEFT PANE (3 cols): Concept Navigation & Lab Parameters */}
         <aside className="lg:col-span-3 space-y-5">
-          {/* Topics List */}
+          {/* Concept Navigation Card */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <BookOpen className="h-3.5 w-3.5 text-[#00f2fe]" aria-hidden="true" />
                 <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                  Learning Topics
+                  Systems Modules
                 </h2>
               </div>
               <span className="font-mono text-[11px] text-[#94a3b8] tabular-nums">
-                {completedModules.length}/{modules.length} done
+                {completedModules.length}/{modules.length}
               </span>
             </div>
 
@@ -129,12 +137,12 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                           selected ? 'text-[#00f2fe]' : 'text-[#94a3b8]'
                         }`}
                       >
-                        {mod.index}
+                        {mod.index}.
                       </span>
                       {done && (
                         <CheckCircle2
                           className="h-3.5 w-3.5 text-[#10b981] shrink-0"
-                          aria-label="Topic completed"
+                          aria-label="Module verified"
                         />
                       )}
                     </div>
@@ -150,13 +158,32 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
             </div>
           </section>
 
-          {/* Simple Idea Card */}
+          {/* Mental Model Callout Card */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                Big Picture
+                Mental Model
               </h2>
-              <StatusBadge severity="theory" label="Simple Idea" />
+              <StatusBadge severity="theory" label="Concept" />
+            </div>
+            <div className="relative aspect-video w-full overflow-hidden border-b border-[#232d3f] bg-[#0e141f]">
+              {!topicImgFailed ? (
+                <img
+                  src={activeModule.imageUrl}
+                  alt={activeModule.imageAlt}
+                  referrerPolicy="no-referrer"
+                  onError={() => setTopicImgFailed(true)}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-[#0e141f] to-[#1c2433] font-mono text-xs text-[#94a3b8]">
+                  {activeModule.title}
+                </div>
+              )}
+              <div
+                aria-hidden="true"
+                className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#141a24]/80 via-transparent to-transparent"
+              />
             </div>
             <div className="p-4 space-y-2.5">
               <p className="text-[13px] leading-5 text-[#dfe2ee]">
@@ -168,13 +195,13 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
             </div>
           </section>
 
-          {/* Interactive Controls Card */}
+          {/* Parameter Controls Card */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <Sliders className="h-3.5 w-3.5 text-[#00f2fe]" aria-hidden="true" />
                 <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                  Try Changing Settings
+                  Lab Parameters
                 </h2>
               </div>
               <span className="font-mono text-[10px] text-[#94a3b8]">LIVE</span>
@@ -186,7 +213,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <label htmlFor="param-write-size" className="text-[#dfe2ee] font-medium">
-                        Data Size to Copy
+                        Payload Write Size
                       </label>
                       <span className="font-mono text-xs text-[#00f2fe] tabular-nums">
                         {params.writeSize} bytes
@@ -203,23 +230,23 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                       className="w-full accent-[#00f2fe] cursor-pointer"
                     />
                     <div className="flex justify-between font-mono text-[10px] text-[#64748b] mt-0.5">
-                      <span>4B (Fits)</span>
-                      <span>12B (Max)</span>
-                      <span>24B (Spills)</span>
+                      <span>4B</span>
+                      <span>12B (Cap)</span>
+                      <span>24B</span>
                     </div>
                   </div>
                   <div className="border-t border-[#232d3f] pt-2">
                     <EngineeringToggle
                       id="toggle-bounds"
-                      label="Check Size Before Copying"
-                      description="Block inputs larger than 12 bytes before copying"
+                      label="Enforce Bounds Check"
+                      description="Reject writes exceeding buf[12] before copy"
                       checked={params.boundsCheck}
                       onChange={(val) => onUpdateParams({ boundsCheck: val })}
                     />
                     <EngineeringCheckbox
                       id="check-canary"
-                      label="Add Safety Marker"
-                      description="Spot if anything overwrote memory near the return address"
+                      label="Arm Stack Canary (0xCAFEBABE)"
+                      description="Detect return pointer tampering on unwind"
                       checked={params.stackCanary}
                       onChange={(val) => onUpdateParams({ stackCanary: val })}
                     />
@@ -232,7 +259,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <label htmlFor="param-clock-rate" className="text-[#dfe2ee] font-medium">
-                        CPU Clock Speed
+                        Core Clock Frequency
                       </label>
                       <span className="font-mono text-xs text-[#00f2fe] tabular-nums">
                         {params.clockRateGhz.toFixed(1)} GHz
@@ -252,15 +279,15 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div className="border-t border-[#232d3f] pt-2">
                     <EngineeringToggle
                       id="toggle-forwarding"
-                      label="Fast Pass Shortcut"
-                      description="Hand R1 directly to the next step so it never waits"
+                      label="EX-to-EX ALU Forwarding"
+                      description="Bypass register writeback on RAW hazards"
                       checked={params.forwardingEnabled}
                       onChange={(val) => onUpdateParams({ forwardingEnabled: val })}
                     />
                     <EngineeringCheckbox
                       id="check-bp"
-                      label="Guess Next Jump Ahead"
-                      description="Keep the line full when instructions jump"
+                      label="Dynamic Branch Predictor"
+                      description="Speculative fetch across JMP boundaries"
                       checked={params.branchPredict}
                       onChange={(val) => onUpdateParams({ branchPredict: val })}
                     />
@@ -273,7 +300,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <label htmlFor="param-skew" className="text-[#dfe2ee] font-medium">
-                        Timing Gap Between Threads
+                        Scheduler Skew Window
                       </label>
                       <span className="font-mono text-xs text-[#00f2fe] tabular-nums">
                         {params.threadSkewMs} ms
@@ -293,15 +320,15 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div className="border-t border-[#232d3f] pt-2">
                     <EngineeringToggle
                       id="toggle-mutex"
-                      label="Turn-Taking Lock"
-                      description="Only let one thread read and update at a time"
+                      label="Mutex Critical Section Lock"
+                      description="Serialize Thread A and Thread B execution"
                       checked={params.mutexEnabled}
                       onChange={(val) => onUpdateParams({ mutexEnabled: val })}
                     />
                     <EngineeringCheckbox
                       id="check-atomic"
-                      label="Single-Step Atomic Update"
-                      description="Do the add/subtract in one unbreakable hardware step"
+                      label="Hardware Atomic Fetch-Add"
+                      description="Execute read-modify-write as single bus cycle"
                       checked={params.atomicOps}
                       onChange={(val) => onUpdateParams({ atomicOps: val })}
                     />
@@ -314,10 +341,10 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <label htmlFor="param-window" className="text-[#dfe2ee] font-medium">
-                        Packets Sent Together (Batch)
+                        Sliding Window Size
                       </label>
                       <span className="font-mono text-xs text-[#00f2fe] tabular-nums">
-                        {params.windowSize} packets
+                        {params.windowSize} frames
                       </span>
                     </div>
                     <input
@@ -334,7 +361,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div>
                     <div className="flex items-center justify-between text-xs mb-1.5">
                       <label htmlFor="param-loss" className="text-[#dfe2ee] font-medium">
-                        Network Packet Loss
+                        Simulated Link Loss
                       </label>
                       <span className="font-mono text-xs text-[#00f2fe] tabular-nums">
                         {params.dropRatePct}%
@@ -354,8 +381,8 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   <div className="border-t border-[#232d3f] pt-2">
                     <EngineeringToggle
                       id="toggle-fastrtx"
-                      label="Quick Resend"
-                      description="Resend missing packet right away without waiting 200ms"
+                      label="Fast Retransmit (3x DUP-ACK)"
+                      description="Resend dropped segment before 200ms RTO"
                       checked={params.fastRetransmit}
                       onChange={(val) => onUpdateParams({ fastRetransmit: val })}
                     />
@@ -366,65 +393,14 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
           </section>
         </aside>
 
-        {/* CENTER PANE (5 cols): Step-by-Step Guide, Live Model & Scrubber */}
+        {/* CENTER PANE (5 cols): Interactive Systems Workbench & D3 Telemetry */}
         <main className="lg:col-span-5 space-y-5">
-          {/* Interactive Step-by-Step Guide Strip */}
-          <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
-            <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <ListOrdered className="h-3.5 w-3.5 text-[#00f2fe]" aria-hidden="true" />
-                <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                  Step-by-Step Walkthrough
-                </h2>
-              </div>
-              <span className="font-mono text-[11px] text-[#00f2fe] tabular-nums">
-                Step {currentStep + 1} of {activeModule.stepTopics.length}
-              </span>
-            </div>
-
-            <div className="grid grid-cols-5 divide-x divide-[#232d3f]">
-              {activeModule.stepTopics.map((st) => {
-                const isCurrent = currentStep === st.frameIndex;
-                const isPast = currentStep > st.frameIndex;
-                return (
-                  <button
-                    key={st.stepNumber}
-                    type="button"
-                    onClick={() => onStepChange(st.frameIndex)}
-                    className={`p-2.5 text-left transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[#00f2fe] ${
-                      isCurrent
-                        ? 'bg-[#1c2433] border-t-2 border-t-[#00f2fe]'
-                        : isPast
-                          ? 'bg-[#141a24] hover:bg-[#1c2433]/60'
-                          : 'bg-[#0e141f] hover:bg-[#1c2433]/40'
-                    }`}
-                  >
-                    <div
-                      className={`font-mono text-[10px] font-semibold ${
-                        isCurrent
-                          ? 'text-[#00f2fe]'
-                          : isPast
-                            ? 'text-[#67f4b7]'
-                            : 'text-[#94a3b8]'
-                      }`}
-                    >
-                      Step {st.stepNumber}
-                    </div>
-                    <div className="mt-1 text-[11px] font-medium leading-4 text-[#dfe2ee] line-clamp-2">
-                      {st.title}
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          {/* Main Workbench Card */}
           <section className="rounded-[0.25rem] border border-[#232d3f] border-t-2 border-t-[#00f2fe] bg-[#141a24] ct-card-shadow overflow-hidden">
+            {/* Top Metadata Bar */}
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <div className="flex items-center gap-2 min-w-0">
                 <h1 className="font-display text-sm font-semibold text-[#dfe2ee] truncate">
-                  {activeModule.index}: {activeModule.title}
+                  {activeModule.index}. {activeModule.title}
                 </h1>
               </div>
 
@@ -445,7 +421,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                         : 'text-[#94a3b8] hover:text-[#dfe2ee]'
                     }`}
                   >
-                    Visual Diagram
+                    Visual Model
                   </button>
                   <button
                     type="button"
@@ -458,13 +434,14 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                         : 'text-[#94a3b8] hover:text-[#dfe2ee]'
                     }`}
                   >
-                    Code View
+                    Source Trace
                   </button>
                 </div>
                 <StatusBadge severity={overallSeverity} />
               </div>
             </div>
 
+            {/* Workbench Canvas Body */}
             <div className="p-5 space-y-5">
               {centerTab === 'visual' ? (
                 <ModuleVisualizer
@@ -497,24 +474,25 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                 </div>
               )}
 
-              {/* Plain-English Step Explanation */}
+              {/* Step Explanation Panel */}
               <div className="rounded-[0.25rem] border border-[#232d3f] bg-[#0e141f] p-4">
                 <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.06em] text-[#00f2fe]">
-                    {frame.phaseLabel}
+                  <span className="font-mono text-[11px] font-semibold uppercase tracking-[0.08em] text-[#00f2fe]">
+                    Cycle Analysis · {frame.phaseLabel}
                   </span>
                   <span className="font-mono text-[11px] text-[#94a3b8] tabular-nums">
-                    Code Line {frame.activeLine + 1}
+                    Line {frame.activeLine + 1}
                   </span>
                 </div>
                 <p className="text-[13px] leading-5 text-[#dfe2ee]">{frame.explanation}</p>
               </div>
 
+              {/* Verify / Mark Module Complete CTA when passing final step */}
               <div className="flex items-center justify-between gap-3 pt-1">
                 <span className="text-xs text-[#94a3b8]">
                   {overallSeverity === 'pass'
-                    ? 'Everything looks safe with your current settings.'
-                    : 'Try changing the settings on the left to fix the issue.'}
+                    ? 'Invariants satisfied for current configuration.'
+                    : 'Adjust parameters on the left to resolve invariants.'}
                 </span>
                 <button
                   type="button"
@@ -526,11 +504,12 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                       : 'border-[#232d3f] bg-[#141a24] text-[#dfe2ee] hover:border-[#38bdf8] hover:text-white'
                   }`}
                 >
-                  {isCompleted ? 'Topic Completed' : 'Mark Topic Done'}
+                  {isCompleted ? 'Module Verified' : 'Verify & Complete'}
                 </button>
               </div>
             </div>
 
+            {/* Time-Travel Scrubber Dock */}
             <TimeTravelScrubber
               currentStep={currentStep}
               totalSteps={frames.length}
@@ -542,21 +521,29 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
               onReset={onReset}
             />
           </section>
+
+          {/* D3.js Resource Utilization & Performance Telemetry Chart */}
+          <PerformanceTelemetryChart
+            frames={frames}
+            currentStep={currentStep}
+            metricMeta={activeModule.metricMeta}
+            onSelectStep={onStepChange}
+          />
         </main>
 
-        {/* RIGHT PANE (4 cols): Live Values, Safety Checks & Console */}
+        {/* RIGHT PANE (4 cols): Live Telemetry, Assertions & Terminal Console */}
         <aside className="lg:col-span-4 space-y-5">
-          {/* Live Numbers */}
+          {/* Registers & State Telemetry */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <Activity className="h-3.5 w-3.5 text-[#00f2fe]" aria-hidden="true" />
                 <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                  Live Values
+                  Register & State Inspector
                 </h2>
               </div>
               <span className="font-mono text-[10px] text-[#94a3b8] tabular-nums">
-                Step {currentStep + 1} · {frame.timestampNs}ns
+                T+{frame.timestampNs}ns
               </span>
             </div>
 
@@ -569,12 +556,12 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.06em] text-[#94a3b8]">
+                    <span className="font-mono text-[10px] font-semibold uppercase tracking-[0.08em] text-[#94a3b8]">
                       {reg.name}
                     </span>
                     {reg.changed && (
                       <span className="font-mono text-[9px] uppercase text-[#00f2fe]">
-                        UPDATED
+                        DELTA
                       </span>
                     )}
                   </div>
@@ -586,11 +573,11 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
             </div>
           </section>
 
-          {/* Safety & Health Checks */}
+          {/* Diagnostic Assertions */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                What Happened? (Checks)
+                Diagnostic Assertions
               </h2>
               <StatusBadge severity={overallSeverity} />
             </div>
@@ -604,7 +591,7 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                     </span>
                     <StatusBadge severity={assertion.severity} />
                   </div>
-                  <p className="text-xs leading-4 text-[#b9cacb]">
+                  <p className="font-mono text-[11px] leading-4 text-[#b9cacb]">
                     {assertion.detail}
                   </p>
                 </div>
@@ -612,16 +599,16 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
             </div>
           </section>
 
-          {/* Step Log & Command Box */}
+          {/* Interactive Execution Console */}
           <section className="rounded-[0.25rem] border border-[#232d3f] bg-[#141a24] ct-card-shadow overflow-hidden">
             <div className="flex items-center justify-between border-b border-[#232d3f] bg-[#101622] px-4 py-2.5">
               <div className="flex items-center gap-2">
                 <Terminal className="h-3.5 w-3.5 text-[#00f2fe]" aria-hidden="true" />
                 <h2 className="font-display text-xs font-semibold uppercase tracking-[0.06em] text-[#dfe2ee]">
-                  Step-by-Step Log
+                  Execution Console
                 </h2>
               </div>
-              <span className="font-mono text-[10px] text-[#94a3b8]">step · back · reset</span>
+              <span className="font-mono text-[10px] text-[#94a3b8]">help · step · inspect</span>
             </div>
 
             <div className="bg-[#0e141f] p-3.5 space-y-2">
@@ -650,8 +637,8 @@ export const WorkbenchScreen: React.FC<WorkbenchScreenProps> = ({
                     type="text"
                     value={terminalInput}
                     onChange={(e) => setTerminalInput(e.target.value)}
-                    placeholder="Type step, back, run, or reset..."
-                    aria-label="Step-by-step console command"
+                    placeholder="Type command (step, back, run, inspect)..."
+                    aria-label="Execution console command"
                     className="w-full bg-transparent font-mono text-xs text-[#dfe2ee] placeholder-[#475569] focus:outline-none"
                   />
                 </div>

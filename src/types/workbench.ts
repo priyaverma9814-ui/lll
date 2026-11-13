@@ -45,6 +45,19 @@ export interface PacketNode {
   payload: string;
 }
 
+export interface FramePerformanceMetrics {
+  utilizationPct: number;
+  efficiencyPct: number;
+  overheadValue: number;
+}
+
+export interface ModuleMetricMeta {
+  primaryLabel: string;
+  secondaryLabel: string;
+  overheadLabel: string;
+  overheadUnit: string;
+}
+
 export interface SimulationFrame {
   cycle: number;
   timestampNs: number;
@@ -54,6 +67,7 @@ export interface SimulationFrame {
   registers: RegisterEntry[];
   assertions: AssertionResult[];
   consoleLine: string;
+  metrics: FramePerformanceMetrics;
   memoryCells?: MemoryCell[];
   pipelineStages?: PipelineStageState[];
   forwardingActive?: boolean;
@@ -82,13 +96,6 @@ export interface WorkbenchParams {
   fastRetransmit: boolean;
 }
 
-export interface ModuleStepTopic {
-  stepNumber: number;
-  title: string;
-  summary: string;
-  frameIndex: number;
-}
-
 export interface EngineeringModule {
   id: ModuleId;
   index: string;
@@ -99,7 +106,9 @@ export interface EngineeringModule {
   sourceCode: string[];
   estimatedMinutes: number;
   topics: string[];
-  stepTopics: ModuleStepTopic[];
+  imageUrl: string;
+  imageAlt: string;
+  metricMeta: ModuleMetricMeta;
 }
 
 export interface TriageChallenge {
